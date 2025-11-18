@@ -49,7 +49,7 @@ Qué se consigue:
 - [ ]  Preprocesamiento
     - [x]  Limpiar datos — filtrar
     - [x]  Entender los campos y hacer una visualización inicial
-    - [ ]  Feature engineering — para que el modelo entienda las caracteristicas de texto
+    - [x]  Feature engineering — para que el modelo entienda las caracteristicas de texto --> LABEL ENCODING, NO one hot encoding pq queda el csv muy sucio
     - [x]  Conseguir datos del tiempo
 - [ ]  Hacer el modelo
     - [ ]  LSTM
