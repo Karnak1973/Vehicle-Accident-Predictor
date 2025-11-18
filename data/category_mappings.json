@@ -10,10 +10,5 @@
     "D_SENTITS_VIA": {
         "0": "Doble sentit",
         "1": "Un sol sentit"
-    },
-    "D_SUPERFICIE": {
-        "0": "Mullat",
-        "1": "Rellisc\u00f3s",
-        "2": "Sec i net"
     }
 }

@@ -122,7 +122,7 @@ def integrate_police_overrides(final_df, accidents_df):
     print(" Integrating dynamic police data (Light, Fog, Real Weather Overrides)...")
     
     # Dynamic columns of interest from the accident report
-    cols_dynamic = ['timestamp_hora', 'segmento_pk', 'D_CLIMATOLOGIA', 'D_BOIRA', 'D_LLUMINOSITAT', 'D_SUPERFICIE']
+    cols_dynamic = ['timestamp_hora', 'segmento_pk', 'D_CLIMATOLOGIA', 'D_BOIRA', 'D_LLUMINOSITAT']
     
     # Merge with the main grid
     # This adds D_... columns only where an accident occurred (rest will be NaN)
@@ -278,7 +278,7 @@ if __name__ == "__main__":
     # 7. LABEL ENCODING
     
     print(" Applying One-Hot Encoding...")
-    categorical_cols = ['D_TRACAT_ALTIMETRIC', 'D_TIPUS_VIA', 'D_SENTITS_VIA', 'D_SUPERFICIE']
+    categorical_cols = ['D_TRACAT_ALTIMETRIC', 'D_TIPUS_VIA', 'D_SENTITS_VIA']
     train_df, category_mappings = apply_label_encoding(train_df, categorical_cols)
 
     # Save mappings to JSON (Important to know what '1' means later!)
