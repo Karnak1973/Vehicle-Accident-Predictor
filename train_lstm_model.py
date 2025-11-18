@@ -3,20 +3,23 @@ import numpy as np
 import joblib
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, precision_recall_curve
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout, BatchNormalization
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+import matplotlib.pyplot as plt
+import os
 
 DATA_FILE = 'data/AP7_Final_Training_Set.csv'
-MODEL_FILE = 'models/accident_lstm_v1.keras'
+MODEL_FILE = 'models/accident_lstm_v2.keras'
 SCALER_FILE = 'models/scaler.pkl'
 
 # Hyperparameters
 LOOKBACK_HOURS = 6   # Time window (in hours) the model looks back to predict
-BATCH_SIZE = 1024    # Batch size for training (adjust based on GPU/RAM)
-EPOCHS = 20          # Max epochs
+NEGATIVE_RATIO = 20  # Aggresive ratio: for every 1 accident, 20 no-accident samples
+BATCH_SIZE = 64    # Batch size for training (adjust based on GPU/RAM)
+EPOCHS = 30          # Max epochs
 TEST_SIZE = 0.2      # 20% of data used for testing (chronological split)
 
 # Columns to EXCLUDE from training (Metadata, not predictive features)
@@ -60,11 +63,32 @@ def load_and_preprocess_data():
     X_scaled = scaler.fit_transform(X_raw)
     
     # Save the scaler for use in future real-time predictions
-    import os
     os.makedirs('models', exist_ok=True)
     joblib.dump(scaler, SCALER_FILE)
     
     return X_scaled, y_raw, feature_names
+
+def perform_undersampling(X, y, ratio=20):
+    """Selects all positive samples (1) and a subset of negative samples (0) to balance the dataset."""
+    idx_1 = np.where(y == 1)[0]
+    idx_0 = np.where(y == 0)[0]
+    
+    # Select a subset of negative samples randomly
+    # Avoid selecting contiguous blocks to prevent temporal leakage,
+    n_negatives = len(idx_1) * ratio
+    idx_0_selected = np.random.choice(idx_0, size=n_negatives, replace=False)
+    
+    # Join indices and sort
+    indices = np.concatenate([idx_1, idx_0_selected])
+    indices.sort()
+    
+    X_sampled = X[indices]
+    y_sampled = y[indices]
+    
+    print(f"   Original data: {len(y)}")
+    print(f"   Balanced data: {len(y_sampled)} (Positives: {len(idx_1)})")
+    
+    return X_sampled, y_sampled
 
 def build_model(input_shape):
     """Defines the LSTM architecture."""
@@ -108,27 +132,20 @@ if __name__ == "__main__":
     # 3. Split Train/Test (Chronological Split)
     split_idx = int(len(X_seq) * (1 - TEST_SIZE))
     
-    X_train, X_test = X_seq[:split_idx], X_seq[split_idx:]
-    y_train, y_test = y_seq[:split_idx], y_seq[split_idx:]
+    X_train_raw = X_seq[:split_idx]
+    y_train_raw = y_seq[:split_idx]
     
-    print(f"Train set: {len(X_train)} samples")
-    print(f"Test set:  {len(X_test)} samples")
+    X_test = X_seq[split_idx:]
+    y_test = y_seq[split_idx:]
     
-    # 4. Calculate Class Weights (Handling Imbalance)
+    print(f"Test set (original):  {len(y_test)} samples")
+    
+    # 4. Apply Undersampling to Training Data
     # This is essential to prevent the model from always predicting 0.
-    neg = np.bincount(y_train)[0]
-    pos = np.bincount(y_train)[1]
-    total = neg + pos
-    
-    # Weight calculation: balance the classes
-    weight_for_0 = (1 / neg) * (total / 2.0)
-    weight_for_1 = (1 / pos) * (total / 2.0)
-    
-    class_weight = {0: weight_for_0, 1: weight_for_1}
-    print(f"Calculated Class Weights: Class 0: {weight_for_0:.4f}, Class 1 (Accident): {weight_for_1:.4f}")
+    X_train_bal, y_train_bal = perform_undersampling(X_train_raw, y_train_raw, ratio=NEGATIVE_RATIO)
     
     # 5. Build and Train Model
-    model = build_model((X_train.shape[1], X_train.shape[2]))
+    model = build_model((X_train_bal.shape[1], X_train_bal.shape[2]))
     
     callbacks = [
         EarlyStopping(patience=5, restore_best_weights=True, monitor='val_auc', mode='max'), # Increased patience
@@ -137,11 +154,10 @@ if __name__ == "__main__":
     
     print("Starting Model Training...")
     history = model.fit(
-        X_train, y_train,
+        X_train_bal, y_train_bal,
         validation_data=(X_test, y_test),
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        class_weight=class_weight,
         callbacks=callbacks,
         verbose=1
     )
@@ -150,15 +166,30 @@ if __name__ == "__main__":
     print("\nEvaluating model...")
     predictions = model.predict(X_test)
     
+    # Histogram of predicted probabilities
+    plt.figure(figsize=(10, 5))
+    plt.hist(predictions[y_test==0], bins=50, alpha=0.5, label='No Accident', log=True) 
+    plt.hist(predictions[y_test==1], bins=50, alpha=0.5, label='Yes Accident', color='red')
+    plt.title('Distribución de Probabilidades Predichas')
+    plt.legend()
+    plt.savefig('probability_distribution.png')
+
     auc = roc_auc_score(y_test, predictions)
     print(f"ROC AUC Score: {auc:.4f}")
     
     # Adjust threshold for better Recall (catching more accidents)
     # The default threshold of 0.5 often misses the rare positive class.
-    THRESHOLD = 0.3 # Example: Lower the threshold to increase sensitivity
-    y_pred_binary = (predictions > THRESHOLD).astype(int)
+
+    # Find the best threshold
+    precisions, recalls, thresholds = precision_recall_curve(y_test, predictions)
+    # Buscamos un umbral que nos de al menos un 60-70% de Recall
+    target_recall = 0.70
+    idx = np.argmax(recalls <= target_recall) # Primer índice donde recall cae por debajo de 0.7
+    best_threshold = thresholds[idx] if idx < len(thresholds) else 0.5
+
+    y_pred_binary = (predictions > best_threshold).astype(int)
     
-    print(f"\n--- Results (Threshold={THRESHOLD}) ---")
+    print(f"\n--- Results (Threshold={best_threshold}) ---")
     print("Confusion Matrix:")
     print(confusion_matrix(y_test, y_pred_binary))
     
