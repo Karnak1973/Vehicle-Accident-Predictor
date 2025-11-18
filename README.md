@@ -50,6 +50,7 @@ Qué se consigue:
     - [x]  Limpiar datos — filtrar
     - [x]  Entender los campos y hacer una visualización inicial
     - [ ]  Feature engineering — para que el modelo entienda las caracteristicas de texto
+    - [x]  Conseguir datos del tiempo
 - [ ]  Hacer el modelo
     - [ ]  LSTM
     - [ ]  XGBOOST
