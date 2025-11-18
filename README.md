@@ -15,8 +15,7 @@ Y (Objetivo): Un escalar: 0 o 1 (el valor de Y_ACCIDENT en la hora T+1).
 
 Manejo del Desbalanceo: Al entrenar, usa class_weights en Keras/TensorFlow para dar mil veces más importancia a las muestras "1" que a las "0".
 
-- Paso 4: Construcción del Modelo LSTM
-Ahora sí, puedes definir tu arquitectura. Una arquitectura robusta podría ser:
+- Paso 4: Construcción del Modelo LSTM. Una arquitectura robusta podría ser:
 
 Input (Secuencia): Input(shape=(12, 50)) (Usando N_horas=12, N_features=50).
 
