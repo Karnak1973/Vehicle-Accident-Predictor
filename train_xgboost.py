@@ -14,6 +14,11 @@ df = pd.read_csv(DATA_FILE)
 X = df.drop(columns=['Y_ACCIDENT', 'timestamp_hora', 'station_id']) 
 y = df['Y_ACCIDENT']
 
+# Manual interaction (Feature Crosses)
+# Help XGBOOST to understand obvious combinations for humans (e.g.: night*rain)
+df['rain_and_night'] = df['precipitation'] * (1 - df['is_daylight']) # Lluvia nocturna
+df['wind_and_ebre'] = df['wind_speed'] * df['segmento_pk'].isin([290, 300, 310, 320, 330]).astype(int) # Viento en zona crítica
+
 # Temporal split 
 # No random shuffling to respect chronological order
 split_index = int(len(df) * 0.8)

@@ -17,25 +17,54 @@ Manejo del Desbalanceo: Al entrenar, usa class_weights en Keras/TensorFlow para 
 
 - Paso 4: Construcción del Modelo LSTM. Una arquitectura robusta podría ser:
 
-Input (Secuencia): Input(shape=(12, 50)) (Usando N_horas=12, N_features=50).
-
-Input (Segmento PK): Input(shape=(1)) (Para el ID del segmento).
-
-Embedding: Embedding(...) -> Conecta esto al Input del Segmento PK.
-
-(Opcional: puedes concatenar el vector de embedding con el input de secuencia).
-
-LSTM Layer: LSTM(64, return_sequences=False) -> Procesa la secuencia de 12 horas.
-
-Dense Layer: Dense(32, activation='relu').
-
-Output Layer: Dense(1, activation='sigmoid') -> Te dará la probabilidad (0.0 a 1.0) de un accidente.
-
-Compilación:
-
 Loss: binary_crossentropy (perfecto para clasificación 0/1).
 
 Metrics: NO uses 'accuracy' (será 99.99%). Usa 'Precision', 'Recall' y 'AUC-PR' (Area Under Precision-Recall Curve). Tu objetivo es maximizar el Recall (encontrar los accidentes) manteniendo una Precision aceptable
+
+# OUTPUT TRAIN MEJOR OBTENIDO HASTA AHORA
+Loading data...
+Data split: Train size: 3527913 Test size: 881979
+Training with 3527913 rows...
+Ratio base: 7735.65
+Starting hyperparameter search (20 combinations)...
+Fitting 3 folds for each of 20 candidates, totalling 60 fits
+Best hyperparameters found:
+{'subsample': 0.8, 'scale_pos_weight': np.float64(15471.302631578947), 'reg_lambda': 1.0, 'reg_alpha': 1.0, 'n_estimators': 500, 'max_depth': 6, 'learning_rate': 0.01, 'colsample_bytree': 0.7}
+Best AUC in validation: {search.best_score_:.4f}
+Training XGBoost...
+
+ Evaluating...
+ ROC AUC Final Score: 0.6327
+ Selected threshold: 0.311818 (for Recall ~55.00000000000001%)
+
+--- FINAL RESULTS ---
+
+ Confusion matrix:
+[[590640 291265]
+ [    34     40]]
+
+Report:
+              precision    recall  f1-score   support
+
+           0       1.00      0.67      0.80    881905
+           1       0.00      0.54      0.00        74
+
+    accuracy                           0.67    881979
+   macro avg       0.50      0.61      0.40    881979
+weighted avg       1.00      0.67      0.80    881979
+
+
+Most Important Variables:
+precipitation          0.173157
+temperature            0.072502
+D_TRACAT_ALTIMETRIC    0.070923
+hour_sin               0.062649
+dow_cos                0.061797
+humidity               0.059587
+segmento_pk            0.058679
+dow_sin                0.055592
+month_cos              0.054278
+month_sin              0.054183
 
 ## Notebook Overview-Data
 Este cuaderno tiene por objetivo conocer los datos y tener una primera visión de los datasets AP7 y catalunya, para poder crear un conjunto de datos capaz de alimentar el modelo de prediccion (hacer feautre engineering)-
