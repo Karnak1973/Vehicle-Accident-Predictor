@@ -140,6 +140,7 @@ if __name__ == "__main__":
     
     print(f"Test set (original):  {len(y_test)} samples")
     
+    
     # 4. Apply Undersampling to Training Data
     # This is essential to prevent the model from always predicting 0.
     X_train_bal, y_train_bal = perform_undersampling(X_train_raw, y_train_raw, ratio=NEGATIVE_RATIO)
