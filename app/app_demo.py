@@ -170,9 +170,11 @@ if model is not None:
         df_tramos['probabilidad'] = riesgos_actuales
         
         def get_color(p):
-            if p > 0.40: return 'red'
-            if p > 0.10: return 'orange'
-            if p > 0.05: return 'yellow'
+            if p > 0.80: return 'darkred'
+            if p > 0.60: return 'red'
+            if p > 0.40: return 'orange'
+            if p > 0.20: return 'yellow'
+            if p > 0.05: return 'yellowgreen'
             return 'green'
 
         df_tramos['color'] = df_tramos['probabilidad'].apply(get_color)
