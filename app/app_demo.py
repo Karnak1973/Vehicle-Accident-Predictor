@@ -3,10 +3,13 @@ import pandas as pd
 import numpy as np
 import folium
 from streamlit_folium import st_folium
+import streamlit.components.v1 as components
 import joblib
 import json
 import datetime
 import os
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 
 #! EJECUTAR CON ESTE COMANDO: streamlit run app/app_demo.py (NO COMO PYTHON NORMAL)
 
@@ -300,13 +303,23 @@ if model is not None:
         pk_lower, pk_upper = rango_pk
         df_tramos = df_tramos[(df_tramos['segmento_pk'] >= pk_lower) & (df_tramos['segmento_pk'] <= pk_upper)]
         
+        #* --- DEFINICIÓN DE ESCALA COLOR ---
+        # vmin=0.0: Riesgo nulo (Verde absoluto)
+        # vmax=0.7: Riesgo muy alto (Rojo absoluto)
+        # No ponemos 1 porque es muy raro que nos de el 100% de probabilidad en la vida real
+        norm = mcolors.Normalize(vmin=0.0, vmax=0.6)
+        cmap = mcolors.LinearSegmentedColormap.from_list("RdYlGn_r",cm.RdYlGn_r(np.linspace(0, 1, 256))) # Colores invertidos: Verde=Seguro, Rojo=Peligro
+        
         def get_color(p):
-            if p > 0.50: return 'darkred'
-            if p > 0.40: return 'red'
-            if p > 0.30: return 'orange'
-            if p > 0.20: return 'yellow'
-            if p > 0.05: return 'yellowgreen'
-            return 'green'
+            # Convierte la probabilidad (0.0 a 1.0) en un código Hexadecimal (#RRGGBB)
+            return mcolors.to_hex(cmap(norm(p)))
+        # def get_color(p):
+        #     if p > 0.50: return 'darkred'
+        #     if p > 0.40: return 'red'
+        #     if p > 0.30: return 'orange'
+        #     if p > 0.20: return 'yellow'
+        #     if p > 0.05: return 'yellowgreen'
+        #     return 'green'
 
         df_tramos['color'] = df_tramos['probabilidad'].apply(get_color)
 
@@ -328,6 +341,40 @@ if model is not None:
         col_map, col_list = st.columns([2, 1])
         with col_map:
             st.subheader("🗺️ Mapa de Calor")
+
+            # --- LEYENDA CSS ---
+            # Creamos un gradiente visual que coincide con tu escala 'RdYlGn_r'
+            legend_html = legend_html = """
+            <div style="
+                display: flex; 
+                flex-direction: column; 
+                align-items: center; 
+                margin-bottom: 15px; 
+                font-family: sans-serif; 
+                font-size: 0.8rem;">
+                
+                <div style="
+                    width: 100%; 
+                    height: 15px; 
+                    background: linear-gradient(to right, #228B22, #9ACD32, #FFD700, #FFA500, #FF0000, #8B0000); 
+                    border-radius: 5px;
+                    border: 1px solid #ddd;">
+                </div>
+                
+                <div style="
+                    display: flex; 
+                    justify-content: space-between; 
+                    width: 100%; 
+                    margin-top: 5px; 
+                    color: #555;">
+                    <span>Risc Baix</span>
+                    <span>Moderat</span>
+                    <span>Crític</span>
+                </div>
+            </div>
+            """
+            components.html(legend_html, height=50)
+
             m = folium.Map(location=[41.5, 1.5], zoom_start=8, tiles="CartoDB positron")
             # Dibujar trazado real de la AP-7 (linea gris)
             if geojson_layer:
