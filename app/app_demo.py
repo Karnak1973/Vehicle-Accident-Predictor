@@ -449,7 +449,8 @@ if model is not None:
                 
                 # Insight automático
                 max_risk_h = future_hours[np.argmax(future_risks)]
-                st.info(f"💡 Atenció: El pic màxim de risc s'espera a les **{max_risk_h}**.")
+                hour = max_risk_h.strftime("%H:%M")
+                st.info(f"💡 Atenció: El pic màxim de risc s'espera a les **{hour}**.")
 
     else:
         st.error("Error: la predicció no coincideix amb el nombre de trams filtrats")
