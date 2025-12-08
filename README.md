@@ -3,7 +3,6 @@
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B)
 ![XGBoost](https://img.shields.io/badge/ML-XGBoost-orange)
-![License](https://img.shields.io/badge/License-MIT-green)
 
 A Machine Learning powered dashboard that predicts the probability of traffic accidents along the **AP-7 highway in Catalonia**. By analyzing historical accident reports, road geometry, and meteorological conditions, this system provides real-time risk assessment to help improve road safety.
 
