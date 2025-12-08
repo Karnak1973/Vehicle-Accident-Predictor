@@ -439,11 +439,12 @@ if model is not None:
                 if len(p_future) > 0:
                     avg_risk = np.mean(p_future) * 100
                     future_risks.append(avg_risk)
-                    future_hours.append(f"{f_hour}:00")
+                    future_hours.append(future_dt)
             
             # Crear gráfico
             if future_risks:
                 chart_df = pd.DataFrame({'Hora': future_hours, 'Risc Mig (%)': future_risks})
+                chart_df = chart_df.sort_values('Hora')
                 st.line_chart(chart_df, x='Hora', y='Risc Mig (%)', color="#ff4b4b")
                 
                 # Insight automático

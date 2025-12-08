@@ -64,7 +64,7 @@ print(f" ROC AUC Final Score: {auc:.4f}")
 precisions, recalls, thresholds = precision_recall_curve(y_test, probs)
 
 #* BUSCAR EL THRESHOLD QUE MAXIMICE F1 o RECALL
-target_recall = 0.55
+target_recall = 0.50
 # Search the threshold that gives at least target_recall (60%)
 idx = np.argmax(recalls <= target_recall) 
 best_threshold = thresholds[idx] if idx < len(thresholds) else 0.5

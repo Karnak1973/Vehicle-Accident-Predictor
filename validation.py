@@ -32,7 +32,7 @@ print(f"Validating with {len(X_test)} samples ({time_test.min()} to {time_test.m
 print("Generating predictions...")
 probs = model.predict_proba(X_test)[:, 1] # Probabilidad de accidente
 
-THRESHOLD = 0.5
+THRESHOLD = 0.104896 #0.153225 # 0.5
 y_pred = (probs > THRESHOLD).astype(int)
 # Guardar probabilidades en el DataFrame para análisis
 df_test_full['probabilidad'] = probs
