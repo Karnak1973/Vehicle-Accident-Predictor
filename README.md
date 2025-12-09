@@ -63,6 +63,7 @@ The model was validated using a time-series split (training on past data, testin
 ```bash
 ├── app/
 │   └── app_demo.py          # Main Streamlit Dashboard application
+│   ├── geometry_coordinates.py
 ├── data/
 │   ├── ap7_geometry.geojson # Generated road geometry
 │   ├── meteo_history/       # Historical weather data
@@ -70,7 +71,6 @@ The model was validated using a time-series split (training on past data, testin
 ├── models/
 │   └── accident_xgboost.pkl # Trained ML model
 ├── scripts/
-│   ├── geometry_coordinates.py
 │   ├── get_meteocat.py
 │   ├── data_preprocessing.py
 │   ├── create_dataset.py
