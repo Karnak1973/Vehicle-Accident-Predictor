@@ -1,14 +1,14 @@
 {
     "D_TRACAT_ALTIMETRIC": {
-        "0": "Pla",
-        "1": "Rampa o pendent"
+        "0": "Pendent",
+        "1": "Pla",
+        "2": "Rampa"
     },
     "D_TIPUS_VIA": {
-        "0": "Autopista",
-        "1": "Carretera convencional"
+        "0": "Autovia"
     },
     "D_SENTITS_VIA": {
         "0": "Doble sentit",
-        "1": "Un sol sentit"
+        "1": "Un sentit"
     }
 }
