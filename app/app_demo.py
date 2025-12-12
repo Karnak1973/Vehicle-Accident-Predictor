@@ -16,7 +16,7 @@ import matplotlib.colors as mcolors
 # --- CONFIGURACIÓN DE RUTAS ---
 MODEL_PATH = 'models/accident_xgboost.pkl'
 MAPPINGS_PATH = 'data/category_mappings.json'
-GEOMETRY_PATH = 'data/route_geometry.geojson' # Updated to new file
+GEOMETRY_PATH = 'data/route_geometry.geojson' # Actualizado al nuevo archivo
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
@@ -76,29 +76,9 @@ def load_resources():
                     if geom.get('type') == 'LineString':
                         coords = geom.get('coordinates', [])
                         all_coords.extend(coords)
-
-                # Para la ruta Valencia -> Vera, queremos ordenarlos de alguna manera lógica si queremos interpolar.
-                # Valencia está al norte/este, Vera al sur/oeste.
-                # Una aproximación simple es ordenar por longitud descendente (Este -> Oeste) o Latitud descendente.
-                # Valencia (-0.37) -> Honrubia (-2.28) -> Albacete (-1.85) -> Murcia (-1.13) -> Vera (-1.87)
-                # Esto es una "U" shape en longitud.
-                # Mejor ordenar por proximidad? Es complejo sin un grafo.
-                # Usaremos la lista cruda o una simplificación.
-                # Para la demo visual, Folium usa el GeoJSON directamente.
-                # Para asignar coordenadas a los PKs ficticios (0 a 470), necesitamos una linea continua.
-                # Si all_coords está desordenado, los puntos saltarán.
-                # Intentaremos ordenar por distancia desde Valencia.
                 
                 if all_coords:
                     valencia = np.array([-0.3763, 39.4699])
-                    # Sort by distance from Valencia is risky for a U-turn route?
-                    # Let's try to just take a sample or leave it unordered for the visual map,
-                    # but we need it for `get_static_segment_data` to put the circles in correct places.
-                    # Since geometry is complex (multiple segments), let's just pick points along the bounding box diagonal for fallback?
-                    # Or try to stitch them.
-                    # Given the constraints, let's just use the GeoJSON for the line,
-                    # and for the circles (PKs), use a simplified interpolation between the main cities.
-                    
                     pass
 
     except Exception as e:
@@ -110,13 +90,13 @@ def load_resources():
 def get_static_segment_data(geometry_points=None):
     segments = []
     
-    # Route: Valencia (0) -> Honrubia (150) -> Albacete (230) -> Murcia (370) -> Vera (470)
+    # Ruta: Valencia (0) -> Honrubia (150) -> Albacete (230) -> Murcia (370) -> Vera (470)
     # Total ~470 km
     step_km = 10
     max_pk = 470
     num_segments = int(max_pk / step_km) 
     
-    # Key waypoints (Lat, Lon)
+    # Puntos Clave (Lat, Lon)
     # Valencia: 39.46, -0.37 (PK 0)
     # Honrubia: 39.60, -2.28 (PK 150)
     # Albacete: 38.99, -1.85 (PK 230)
@@ -132,7 +112,7 @@ def get_static_segment_data(geometry_points=None):
     ]
 
     def interpolate_coords(pk):
-        # Find which segment this PK belongs to
+        # Encontrar a qué segmento pertenece este PK
         for i in range(len(waypoints) - 1):
             pk1, lat1, lon1 = waypoints[i]
             pk2, lat2, lon2 = waypoints[i+1]
@@ -146,7 +126,7 @@ def get_static_segment_data(geometry_points=None):
 
     for i in range(num_segments):
         pk = i * step_km
-        lat, lon = interpolate_coords(pk + step_km/2) # Center of segment
+        lat, lon = interpolate_coords(pk + step_km/2) # Centro del segmento
         
         # Asignación de atributos
         velocidad = 120.0
@@ -223,12 +203,8 @@ def predict_risk_real(model, df_segments, clima, hora, fecha):
         X['precip_last_3h'] = precip_last_3h
         X['wet_road'] = wet_road
         X['wet_and_night'] = wet_and_night
-        X['wind_and_critical'] = wind_and_critical # Renamed from wind_and_ebre
+        X['wind_and_critical'] = wind_and_critical # Renombrado de wind_and_ebre
 
-        # Rename for compatibility if model expects old name
-        # If the model was trained with 'wind_and_ebre', we must provide 'wind_and_ebre'
-        # Check feature names of model later. For now assume we trained on new data with 'wind_and_critical'
-        # BUT WAIT: I modified create_dataset.py to use 'wind_and_critical'
 
         expected_cols = [
             'segmento_pk',
@@ -239,10 +215,8 @@ def predict_risk_real(model, df_segments, clima, hora, fecha):
             'wind_and_critical'
         ]
 
-        # Verify model features to avoid mismatch
+        # Verificar features del modelo
         model_feats = model.get_booster().feature_names
-        # Map our columns to model columns if names differ
-        # (Assuming I retrained the model, it should match)
 
         X = X[expected_cols].astype(float)
 
@@ -262,32 +236,32 @@ def predict_risk_real(model, df_segments, clima, hora, fecha):
 
     except Exception as e:
         st.error(f"ERROR en predict_risk_real(): {e}")
-        # st.write("Model features:", model.get_booster().feature_names) # Debug
+        # st.write("Features del modelo:", model.get_booster().feature_names) # Debug
         st.stop()
 
 # --- UI SIDEBAR ---
 with st.sidebar:
-    st.title("Panell de Control")
+    st.title("Panel de Control")
     st.markdown("**Ruta: Valencia - Honrubia - Albacete - Murcia - Vera**")
     st.markdown("---")
     
-    fecha = st.date_input("Data Predicció", datetime.date.today())
-    hora = st.slider("Hora del dia", 0, 23, datetime.datetime.now().hour, format="%dh")
+    fecha = st.date_input("Fecha Predicción", datetime.date.today())
+    hora = st.slider("Hora del día", 0, 23, datetime.datetime.now().hour, format="%dh")
     
-    st.markdown("### 🌦️ Meteorologia")
+    st.markdown("### 🌦️ Meteorología")
     col1, col2 = st.columns(2)
     with col1:
-        lluvia = st.toggle("Pluja", value=False)
-        viento = st.toggle("Vent Fort", value=False)
+        lluvia = st.toggle("Lluvia", value=False)
+        viento = st.toggle("Viento Fuerte", value=False)
     with col2:
-        niebla = st.toggle("Boira", value=False)
+        niebla = st.toggle("Niebla", value=False)
         is_day = 7 <= hora <= 20
-        luz = st.toggle("Llum de dia", value=is_day)
+        luz = st.toggle("Luz de día", value=is_day)
     
-    st.markdown("### 🛣️ PK a visualitzar")
+    st.markdown("### 🛣️ PK a visualizar")
     pk_min = 0
     pk_max = 470
-    rango_pk = st.slider("Selecciona el rang de PK",
+    rango_pk = st.slider("Selecciona el rango de PK",
                          min_value=pk_min,
                          max_value=pk_max,
                          value=(pk_min, pk_max),
@@ -323,19 +297,19 @@ if model is not None:
         df_tramos['color'] = df_tramos['probabilidad'].apply(get_color)
 
         # Dashboard Header
-        st.title("🚔 Sistema de Predicció de Risc Viari")
+        st.title("🚔 Sistema de Predicción de Riesgo Vial")
         st.markdown(f"**Ruta: A-3 / A-31 / A-30 / A-7**")
-        st.markdown(f"**Predicció per a:** {fecha.strftime('%d/%m/%Y')} a les **{hora}:00h**")
+        st.markdown(f"**Predicción para:** {fecha.strftime('%d/%m/%Y')} a las **{hora}:00h**")
 
         # KPIs
         col1, col2, col3, col4 = st.columns(4)
         riesgo_medio = df_tramos['probabilidad'].mean() * 100
         alerts = len(df_tramos[df_tramos['probabilidad'] > 0.10])
         
-        with col1: st.metric("Risc Global",f"{riesgo_medio:.1f}%",delta=("Alt" if riesgo_medio > 27 else ("Normal" if riesgo_medio > 12 else "Baix")),delta_color="inverse" if riesgo_medio > 27 else ("normal" if riesgo_medio > 12 else "off"))
-        with col2: st.metric("Alertes Actives", alerts, delta_color="inverse")
-        with col3: st.metric("Meteorologia", "Adversa" if (lluvia or niebla) else "Favorable")
-        with col4: st.metric("Trànsit", "Hora Punta" if 7 <= hora <= 19 else "Fluid")
+        with col1: st.metric("Riesgo Global",f"{riesgo_medio:.1f}%",delta=("Alto" if riesgo_medio > 27 else ("Normal" if riesgo_medio > 12 else "Bajo")),delta_color="inverse" if riesgo_medio > 27 else ("normal" if riesgo_medio > 12 else "off"))
+        with col2: st.metric("Alertas Activas", alerts, delta_color="inverse")
+        with col3: st.metric("Meteorología", "Adversa" if (lluvia or niebla) else "Favorable")
+        with col4: st.metric("Tráfico", "Hora Punta" if 7 <= hora <= 19 else "Fluido")
 
         # Mapa y Lista
         col_map, col_list = st.columns([2, 1])
@@ -365,25 +339,25 @@ if model is not None:
                     color=row['color'],
                     fill=True,
                     fill_opacity=0.8,
-                    popup=f"<b>{row['nombre_tramo']}</b><br>Risc: {row['probabilidad']:.2%}"
+                    popup=f"<b>{row['nombre_tramo']}</b><br>Riesgo: {row['probabilidad']:.2%}"
                 ).add_to(m)
             
             st_folium(m, width="100%", height=500)
 
         with col_list:
-            st.subheader("⚠️ Top Alertes")
+            st.subheader("⚠️ Top Alertas")
             top = df_tramos.sort_values('probabilidad', ascending=False).head(5)
             for _, row in top.iterrows():
                 prob = row['probabilidad'] * 100
                 st.markdown(f"**{row['nombre_tramo']}**")
                 st.progress(min(int(prob * 3), 100))
-                st.caption(f"Probabilitat: {prob:.2f}%")
+                st.caption(f"Probabilidad: {prob:.2f}%")
 
         # --- GRÁFICO TEMPORAL REAL (24 HORAS) ---
         st.markdown("---")
-        st.subheader("Evolució del Risc (Pròximes 24 Hores)")
+        st.subheader("Evolución del Riesgo (Próximas 24 Horas)")
         
-        with st.spinner("Calculant previsió futura..."):
+        with st.spinner("Calculando previsión futura..."):
             future_risks = []
             future_hours = []
             
@@ -405,8 +379,8 @@ if model is not None:
                     future_hours.append(future_dt)
             
             if future_risks:
-                chart_df = pd.DataFrame({'Hora': future_hours, 'Risc Mig (%)': future_risks})
+                chart_df = pd.DataFrame({'Hora': future_hours, 'Riesgo Medio (%)': future_risks})
                 chart_df = chart_df.sort_values('Hora')
-                st.line_chart(chart_df, x='Hora', y='Risc Mig (%)', color="#ff4b4b")
+                st.line_chart(chart_df, x='Hora', y='Riesgo Medio (%)', color="#ff4b4b")
 else:
     st.warning("El modelo aún no ha sido entrenado. Ejecuta `train_xgboost.py`.")

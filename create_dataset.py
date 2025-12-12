@@ -6,24 +6,15 @@ import json
 import sys
 
 #! --- CONSTANTES ---
-ACCIDENTS_FILE = 'data/Accidents_Route.csv' # Changed from Accidents_AP7.csv
+ACCIDENTS_FILE = 'data/Accidents_AP7.csv'
 METEO_FOLDER = 'data/meteo_history'
-OUTPUT_FILE = 'data/AP7_Final_Training_Set.csv' # Keeping original name to avoid breaking downstream scripts
+OUTPUT_FILE = 'data/AP7_Final_Training_Set.csv'
 MAPPING_FILE = 'data/category_mappings.json'
 SEGMENT_SIZE_KM = 10
 
 # Station Mapping
-# Route: Valencia (0) -> Vera (470)
 STATION_MAPPING = {
-    40: 'VALENCIA',    # 0-40 -> Valencia
-    110: 'REQUENA',    # 40-110 -> Requena
-    170: 'HONRUBIA',   # 110-170 -> Honrubia
-    210: 'LARODA',     # 170-210 -> La Roda
-    255: 'ALBACETE',   # 210-255 -> Albacete
-    325: 'HELLIN',     # 255-325 -> Hellin
-    400: 'MURCIA',     # 325-400 -> Murcia
-    450: 'LORCA',      # 400-450 -> Lorca
-    999: 'VERA'        # 450+ -> Vera
+    0: 'X2', 40: 'X8', 100: 'WU', 180: 'V1', 280: 'XG', 999: 'XG'
 }
 
 VAR_NAMES = {
@@ -37,7 +28,8 @@ STATIC_FEATURES = [
 
 # --- 1. CARGA Y LIMPIEZA ---
 def load_and_prep_accidents(filepath):
-    print("Loading accident data...")
+    """Unificación de la lógica de limpieza de create_grid y create_final_dataset"""
+    print("Loading police accident data...")
     try:
         df = pd.read_csv(filepath, low_memory=False)
     except FileNotFoundError:
@@ -46,22 +38,13 @@ def load_and_prep_accidents(filepath):
     # Limpieza de fechas y horas
     df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y')
     
-    # Handle synthetic time format "H.M"
-    def parse_time(h_str):
-        try:
-            parts = str(h_str).split('.')
-            h = int(parts[0])
-            m = int(parts[1]) if len(parts) > 1 else 0
-            return pd.Timedelta(hours=h, minutes=m)
-        except:
-            return pd.Timedelta(0)
+    if pd.api.types.is_object_dtype(df['hora']):
+        df['hora'] = df['hora'].astype(str).str.replace(',', '.', regex=False)
 
-    df['hora_timedelta'] = df['hora'].apply(parse_time)
+    # Crear timestamp completo
+    df['hora_timedelta'] = pd.to_timedelta(pd.to_numeric(df['hora'], errors='coerce').round().fillna(0).astype(int), unit='h')
     df['timestamp_hora'] = df['data'] + df['hora_timedelta']
     
-    # Round timestamp to nearest hour for merging with weather
-    df['timestamp_hora'] = df['timestamp_hora'].dt.round('h')
-
     # Limpieza de PKs y creación de Segmentos
     if pd.api.types.is_object_dtype(df['pk']):
         df['pk'] = df['pk'].astype(str).str.replace(',', '.', regex=False)
@@ -81,9 +64,8 @@ def create_full_grid(df_accidents):
     min_date = df_accidents['timestamp_hora'].min().floor('D')
     max_date = df_accidents['timestamp_hora'].max().ceil('D')
     
-    # Explicitly set min_pk to 0 and max_pk to cover the full route
-    min_pk = 0
-    max_pk = 470
+    min_pk = np.floor(df_accidents['pk'].min() / SEGMENT_SIZE_KM) * SEGMENT_SIZE_KM
+    max_pk = np.ceil(df_accidents['pk'].max() / SEGMENT_SIZE_KM) * SEGMENT_SIZE_KM
     
     all_hours = pd.date_range(start=min_date, end=max_date, freq='h')
     pk_segments = np.arange(min_pk, max_pk + SEGMENT_SIZE_KM, SEGMENT_SIZE_KM).astype(int)
@@ -107,10 +89,6 @@ def create_full_grid(df_accidents):
 def generate_static_features(accidents_df):
     """Extrae características fijas de la carretera (tipo de vía, velocidad)"""
     print("Mapping static highway features...")
-    # Synthetic data check
-    if 'C_VELOCITAT_VIA' not in accidents_df.columns:
-        accidents_df['C_VELOCITAT_VIA'] = 120 # Default
-
     static_lookup = accidents_df.groupby('segmento_pk')[STATIC_FEATURES].agg(
         lambda x: x.mode().iloc[0] if not x.mode().empty else np.nan
     ).reset_index()
@@ -157,9 +135,9 @@ def process_meteorology(grid_df, meteo_folder):
     # 2. Asignar estación al Grid
     def get_station(pk):
         for limit in sorted(STATION_MAPPING.keys()):
-            if pk <= limit:
-                return STATION_MAPPING[limit]
-        return STATION_MAPPING[999]
+            if pk >= limit: assigned = STATION_MAPPING[limit]
+            else: break
+        return assigned
     
     unique_segments = pd.DataFrame({'segmento_pk': grid_df['segmento_pk'].unique()})
     unique_segments['station_id'] = unique_segments['segmento_pk'].apply(get_station)
@@ -186,6 +164,10 @@ def integrate_police_overrides(final_df, accidents_df):
     acc_slim = accidents_df[cols_dynamic].drop_duplicates(subset=['timestamp_hora', 'segmento_pk'])
     final_df = final_df.merge(acc_slim, on=['timestamp_hora', 'segmento_pk'], how='left')
     
+    #! ELIMINAR OVERRIDE DE LLUVIA (DA RIESGO ALTISIMO SIEMPRE)
+    # rain_mask = final_df['D_CLIMATOLOGIA'].str.contains('Pluja|tempesta', case=False, na=False)
+    # final_df.loc[rain_mask, 'precipitation'] = final_df.loc[rain_mask, 'precipitation'].apply(lambda x: max(x if pd.notnull(x) else 0, 1.0))
+
     final_df['is_foggy'] = 0
     final_df.loc[final_df['D_BOIRA'].str.contains('Boira', case=False, na=False), 'is_foggy'] = 1
     
@@ -216,10 +198,9 @@ def add_feature_crosses(df):
     if 'is_daylight' in df.columns:
         df['wet_and_night'] = df['wet_road'] * (1 - df['is_daylight'])
         
-    # Critical segments (Hotspots) - Simulated based on synthetic data logic
-    critical_segments = [0, 10, 20, 160, 170, 180, 290, 300, 310]
+    critical_segments = [290, 300, 310, 320, 330]
     if 'wind_speed' in df.columns and 'segmento_pk' in df.columns:
-        df['wind_and_critical'] = df['wind_speed'] * df['segmento_pk'].isin(critical_segments).astype(int)
+        df['wind_and_ebre'] = df['wind_speed'] * df['segmento_pk'].isin(critical_segments).astype(int)
     
     return df
 
