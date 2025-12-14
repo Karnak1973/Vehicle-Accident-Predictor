@@ -40,7 +40,7 @@ def load_and_prep_accidents(filepath):
     
     if pd.api.types.is_object_dtype(df['hora']):
         df['hora'] = df['hora'].astype(str).str.replace(',', '.', regex=False)
-    
+
     # Crear timestamp completo
     df['hora_timedelta'] = pd.to_timedelta(pd.to_numeric(df['hora'], errors='coerce').round().fillna(0).astype(int), unit='h')
     df['timestamp_hora'] = df['data'] + df['hora_timedelta']
@@ -167,7 +167,7 @@ def integrate_police_overrides(final_df, accidents_df):
     #! ELIMINAR OVERRIDE DE LLUVIA (DA RIESGO ALTISIMO SIEMPRE)
     # rain_mask = final_df['D_CLIMATOLOGIA'].str.contains('Pluja|tempesta', case=False, na=False)
     # final_df.loc[rain_mask, 'precipitation'] = final_df.loc[rain_mask, 'precipitation'].apply(lambda x: max(x if pd.notnull(x) else 0, 1.0))
-    
+
     final_df['is_foggy'] = 0
     final_df.loc[final_df['D_BOIRA'].str.contains('Boira', case=False, na=False), 'is_foggy'] = 1
     
